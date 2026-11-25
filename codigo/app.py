@@ -1,131 +1,1050 @@
-import os  # Importa o módulo 'os' para interagir com o sistema operacional (limpar a tela)
+import http.server
+import json
+import os
+import re
+import socketserver
+import threading
+import webbrowser
 
-def limpar_tela():
-    """
-    Função utilitária para limpar a tela do console.
-    O módulo 'os' verifica o sistema operacional:
-    - Se for Windows ('nt'), executa o comando 'cls'.
-    - Se for Linux ou macOS, executa o comando 'clear'.
-    Isso garante que o menu fique sempre limpo e organizado para o usuário.
-    """
-    os.system('cls' if os.name == 'nt' else 'clear')
+PORT = 8000
+ARQUIVO_ALUNOS = "alunos.json"
+PREPOSICOES = {"da", "de", "do", "das", "dos", "e"}
 
-def validar_nota(mensagem):
-    """
-    Função de validação defensiva para garantir que o usuário digite 
-    apenas números válidos entre 0 e 10.
-    
-    Usa um loop infinito (while True) que só é interrompido (return) 
-    quando a entrada atende a todas as regras de negócio.
-    """
-    while True:  # Loop infinito que continuará rodando até que o usuário digite um valor válido
-        try:
-            # Exibe a mensagem recebida por parâmetro, captura o texto e tenta convertê-lo para decimal (float)
-            nota = float(input(mensagem))
-            
-            # Verifica se o número convertido está dentro do intervalo escolar permitido (0 a 10)
-            if 0 <= nota <= 10:
-                return nota  # Retorna a nota válida para quem chamou a função e encerra o loop
-            else:
-                # Caso o número seja menor que 0 ou maior que 10, avisa o usuário e repete o loop
-                print("A nota deve estar entre 0 e 10. Tente novamente.")
-                
-        except ValueError:
-            # Captura erros caso o usuário digite letras, símbolos ou deixe a entrada vazia
-            print("Entrada inválida! Digite apenas números.")
 
-def exibir_cabecalho():
-    """Exibe o cabeçalho visual padrão do sistema no topo do console."""
-    print("=" * 50)  # Imprime uma linha com 50 caracteres de sinal de igual
-    print("        SISTEMA ESCOLAR - CONTROLE DE NOTAS")
-    print("=" * 50)
+def carregar_alunos():
+    if not os.path.exists(ARQUIVO_ALUNOS):
+        return []
+    try:
+        with open(ARQUIVO_ALUNOS, "r", encoding="utf-8") as arquivo:
+            dados = json.load(arquivo)
+            return dados if isinstance(dados, list) else []
+    except (json.JSONDecodeError, OSError):
+        return []
 
-def cadastrar_aluno(alunos):
-    """
-    Gerencia o processo de cadastro de um novo aluno e suas respectivas notas.
-    Recebe por parâmetro a lista 'alunos' para adicionar o novo registro.
-    """
-    print("\n--- NOVO CADASTRO ---")
-    
-    # Solicita o nome do aluno e remove espaços em branco extras nas pontas usando .strip()
-    nome = input("Digite o nome do aluno: ").strip()
-    
-    # Validação para impedir que o usuário cadastre um nome vazio (pressionando apenas ENTER)
-    if not nome:
-        print("O nome não pode estar vazio.")
-        return  # Encerra a execução desta função prematuramente e volta ao menu
 
-    # Coletando as 3 notas utilizando a função de validação criada anteriormente
-    n1 = validar_nota(f"Digite a 1ª nota de {nome}: ")
-    n2 = validar_nota(f"Digite a 2ª nota de {nome}: ")
-    n3 = validar_nota(f"Digite a 3ª nota de {nome}: ")
+def salvar_alunos(alunos):
+    with open(ARQUIVO_ALUNOS, "w", encoding="utf-8") as arquivo:
+        json.dump(alunos, arquivo, ensure_ascii=False, indent=2)
 
-    # Calculando a média aritmética das 3 notas somando todas e dividindo por 3
-    media = (n1 + n2 + n3) / 3
-    
-    # Definindo a situação acadêmica com base no valor da média obtida
-    if media >= 7.0:
-        situacao = "Aprovado(a) "
-    elif media >= 5.0:
-        situacao = "Em Recuperação "
-    else:
-        situacao = "Reprovado(a) "
 
-    # Criando um dicionário para estruturar os dados do aluno de forma organizada por chaves e valores
-    aluno = {
-        "nome": nome.title(),               # .title() padroniza a primeira letra de cada palavra em maiúscula
-        "notas": [n1, n2, n3],             # Armazena as 3 notas dentro de uma lista interna
-        "media": media,                    # Armazena o valor numérico da média calculada
-        "situacao": situacao               # Armazena a string contendo o status final do aluno
-    }
-    
-    # Adiciona o dicionário do aluno recém-criado dentro da lista principal 'alunos'
-    alunos.append(aluno)
-    print(f"\nAluno(a) '{aluno['nome']}' cadastrado(a) com sucesso!")
-
-def listar_relatorio(alunos):
-    """
-    Percorre a lista de alunos cadastrados, exibe o boletim individual de cada um
-    e calcula estatísticas gerais da turma (média da sala e contadores de status).
-    """
-    # Verifica se a lista de alunos está vazia antes de tentar gerar qualquer relatório
-    if not alunos:
-        print("\nNenhum aluno cadastrado até o momento.")
-        return  # Sai da função se não houver registros
-
-    print("\n" + "=" * 50)
-    print("          RELATÓRIO FINAL DA TURMA")
-    print("=" * 50)
-    
-    # Declarando variáveis acumuladoras e contadoras para gerar as estatísticas da turma
-    soma_medias = 0
-    aprovados = 0
-    recuperacao = 0
-    reprovados = 0
-
-    # A função enumerate() percorre a lista extraindo o índice (começando em 1) e o dicionário do aluno
-    for i, a in enumerate(alunos, 1):
-        print(f"{i}. Aluno(a): {a['nome']}")
-        # Formata a exibição das notas utilizando :.1f para mostrar sempre 1 casa decimal
-        print(f"   Notas: {a['notas'][0]:.1f} | {a['notas'][1]:.1f} | {a['notas'][2]:.1f}")
-        print(f"   Média: {a['media']:.2f}")  # Formata a média para exibir 2 casas decimais
-        print(f"   Situação: {a['situacao']}")
-        print("-" * 50)
-        
-        # Acumula o valor da média do aluno atual na variável totalizadora
-        soma_medias += a['media']
-        
-        # Verifica o texto da situação para incrementar o contador correto de desempenho da turma
-        if "Aprovado" in a['situacao']:
-            aprovados += 1
-        elif "Recuperação" in a['situacao']:
-            recuperacao += 1
+def formatar_nome(texto):
+    partes = re.sub(r"\s+", " ", texto.strip()).lower().split(" ")
+    resultado = []
+    for indice, palavra in enumerate(partes):
+        if indice > 0 and palavra in PREPOSICOES:
+            resultado.append(palavra)
         else:
-            reprovados += 1
+            resultado.append(palavra.capitalize())
+    return " ".join(resultado)
 
-    # Calcula a média geral da sala dividindo a soma de todas as médias pelo número total de alunos
-    media_turma = soma_medias / len(alunos)
-    
-    # Exibe o resumo estatístico consolidado da turma inteira
-    print("\nESTATÍSTICAS DA TURMA:")
-    print(f"• Total")
+
+def calcular_situacao(media):
+    if media >= 7.0:
+        return {"texto": "Aprovado(a)", "classe": "aprovado"}
+    if media >= 5.0:
+        return {"texto": "Em Recuperação", "classe": "recuperacao"}
+    return {"texto": "Reprovado(a)", "classe": "reprovado"}
+
+
+HTML_PAGE = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Escolar — Controle de Notas</title>
+    <style>
+        :root {
+            --bg-page: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #16a34a;
+            --success-bg: #dcfce7;
+            --success-text: #166534;
+            --warning: #eab308;
+            --warning-bg: #fef9c3;
+            --warning-text: #854d0e;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --danger-text: #991b1b;
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+            --shadow-md: 0 10px 25px -5px rgba(15, 23, 42, 0.07);
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0 16px 56px;
+            min-height: 100vh;
+        }
+
+        .top-banner {
+            background: radial-gradient(circle at top right, #3b82f6, #1e3a8a 75%);
+            height: 210px;
+            margin: 0 -16px;
+            padding: 32px 20px 0;
+            color: #ffffff;
+        }
+
+        .banner-content {
+            max-width: 1020px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.16);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 1.55rem;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .brand p {
+            margin: 4px 0 0;
+            font-size: 0.88rem;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .regras-pill {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            background: rgba(15, 23, 42, 0.25);
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .regras-pill span {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .container {
+            max-width: 1020px;
+            margin: -72px auto 0;
+        }
+
+        /* KPIs / Estatísticas */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 18px 16px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary);
+        }
+
+        .stat-card.aprovados::before { background: var(--success); }
+        .stat-card.recuperacao::before { background: var(--warning); }
+        .stat-card.reprovados::before { background: var(--danger); }
+        .stat-card.media::before { background: #0ea5e9; }
+
+        .stat-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-top: 8px;
+            line-height: 1.1;
+        }
+
+        .stat-sub {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Cartões Principais */
+        .card {
+            background: var(--bg-card);
+            padding: 24px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 22px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title h2 {
+            margin: 0;
+            font-size: 1.12rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .preview-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 2.4fr 1fr 1fr 1fr auto;
+            gap: 14px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #334155;
+        }
+
+        input, select {
+            height: 44px;
+            padding: 0 14px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: var(--radius-md);
+            font-size: 0.95rem;
+            color: var(--text-main);
+            background-color: #ffffff;
+            transition: all 0.2s ease;
+        }
+
+        input:hover, select:hover {
+            border-color: #94a3b8;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+        }
+
+        .btn-primary {
+            height: 44px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: #ffffff;
+            border: none;
+            padding: 0 22px;
+            border-radius: var(--radius-md);
+            font-size: 0.94rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.06);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .erro {
+            color: var(--danger);
+            font-size: 0.86rem;
+            margin-top: 10px;
+            font-weight: 600;
+            min-height: 20px;
+        }
+
+        /* Barra de Ferramentas da Tabela */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            height: 38px;
+            min-width: 210px;
+            font-size: 0.88rem;
+        }
+
+        .filter-select {
+            height: 38px;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+
+        .btn-outline {
+            height: 38px;
+            background: #ffffff;
+            color: #334155;
+            border: 1.5px solid #cbd5e1;
+            padding: 0 14px;
+            border-radius: var(--radius-md);
+            font-size: 0.84rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+
+        .btn-outline:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .btn-outline.danger-hover:hover {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: var(--danger);
+        }
+
+        /* Tabela */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+
+        tbody tr {
+            transition: background-color 0.15s ease;
+        }
+
+        tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .aluno-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 0.82rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .notas-grupo {
+            display: flex;
+            gap: 6px;
+        }
+
+        .nota-chip {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .media-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .progress-bg {
+            width: 64px;
+            height: 7px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.3s ease;
+        }
+
+        .badge {
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .aprovado { background-color: var(--success-bg); color: var(--success-text); }
+        .recuperacao { background-color: var(--warning-bg); color: var(--warning-text); }
+        .reprovado { background-color: var(--danger-bg); color: var(--danger-text); }
+
+        .btn-delete {
+            background: transparent;
+            color: #94a3b8;
+            border: 1px solid transparent;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-delete:hover {
+            background: var(--danger-bg);
+            color: var(--danger);
+            border-color: #fecaca;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .empty-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        @media (max-width: 880px) {
+            .form-grid {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+            .form-group:first-child {
+                grid-column: 1 / -1;
+            }
+            .btn-primary {
+                grid-column: 1 / -1;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 560px) {
+            .top-banner {
+                height: auto;
+                padding-bottom: 92px;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            .search-input, .filter-select {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-banner">
+    <div class="banner-content">
+        <div class="brand">
+            <div class="brand-icon">🎓</div>
+            <div>
+                <h1>Sistema Escolar</h1>
+                <p>Gestão de notas, médias e desempenho da turma</p>
+            </div>
+        </div>
+        <div class="regras-pill">
+            <span><i class="dot" style="background:#4ade80;"></i> Aprovado &ge; 7,0</span>
+            <span><i class="dot" style="background:#facc15;"></i> Recuperação 5,0–6,9</span>
+            <span><i class="dot" style="background:#f87171;"></i> Reprovado &lt; 5,0</span>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Indicadores Gerais -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-top"><span>Total de Alunos</span><span>👥</span></div>
+            <div class="stat-value" id="statTotal">0</div>
+            <div class="stat-sub">Matriculados</div>
+        </div>
+        <div class="stat-card aprovados">
+            <div class="stat-top"><span>Aprovados</span><span>✅</span></div>
+            <div class="stat-value" id="statAprovados">0</div>
+            <div class="stat-sub" id="pctAprovados">0% da turma</div>
+        </div>
+        <div class="stat-card recuperacao">
+            <div class="stat-top"><span>Recuperação</span><span>⚠️</span></div>
+            <div class="stat-value" id="statRecuperacao">0</div>
+            <div class="stat-sub" id="pctRecuperacao">0% da turma</div>
+        </div>
+        <div class="stat-card reprovados">
+            <div class="stat-top"><span>Reprovados</span><span>❌</span></div>
+            <div class="stat-value" id="statReprovados">0</div>
+            <div class="stat-sub" id="pctReprovados">0% da turma</div>
+        </div>
+        <div class="stat-card media">
+            <div class="stat-top"><span>Média Geral</span><span>📊</span></div>
+            <div class="stat-value" id="statMedia">0.00</div>
+            <div class="stat-sub">Desempenho global</div>
+        </div>
+    </div>
+
+    <!-- Formulário de Cadastro -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <h2>Cadastrar Novo Aluno</h2>
+            </div>
+            <div class="preview-box" id="previewMedia">
+                Prévia da média: <strong>—</strong>
+            </div>
+        </div>
+        <form id="formAluno" novalidate>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="nome">Nome Completo</label>
+                    <input type="text" id="nome" placeholder="Ex: Maria da Silva" required>
+                </div>
+                <div class="form-group">
+                    <label for="n1">1ª Avaliação</label>
+                    <input type="number" id="n1" step="0.1" min="0" max="10" placeholder="0.0" required>
+                </div>
+                <div class="form-group">
+                    <label for="n2">2ª Avaliação</label>
+                    <input type="number" id="n2" step="0.1" min="0" max="10" placeholder="0.0" required>
+                </div>
+                <div class="form-group">
+                    <label for="n3">3ª Avaliação</label>
+                    <input type="number" id="n3" step="0.1" min="0" max="10" placeholder="0.0" required>
+                </div>
+                <button type="submit" class="btn-primary">+ Adicionar</button>
+            </div>
+            <div id="mensagemErro" class="erro" role="alert"></div>
+        </form>
+    </div>
+
+    <!-- Relatório da Turma -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <h2>Boletim da Turma</h2>
+            </div>
+            <div class="toolbar">
+                <input type="text" id="filtroNome" class="search-input" placeholder="🔍 Buscar por nome...">
+                <select id="filtroSituacao" class="filter-select" aria-label="Filtrar por situação">
+                    <option value="todos">Todas as situações</option>
+                    <option value="aprovado">Aprovados</option>
+                    <option value="recuperacao">Em Recuperação</option>
+                    <option value="reprovado">Reprovados</option>
+                </select>
+                <button type="button" id="btnExportarCsv" class="btn-outline">⬇ Exportar CSV</button>
+                <button type="button" id="btnLimparTudo" class="btn-outline danger-hover">🗑 Limpar</button>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Aluno(a)</th>
+                        <th>Notas (1ª / 2ª / 3ª)</th>
+                        <th>Média Final</th>
+                        <th>Situação</th>
+                        <th style="text-align: right;">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaAlunos">
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <span class="empty-icon">📋</span>
+                                Nenhum aluno cadastrado até o momento.
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const preposicoes = new Set(['da', 'de', 'do', 'das', 'dos', 'e']);
+    const coresAvatar = [
+        ['#dbeafe', '#1d4ed8'],
+        ['#e0e7ff', '#4338ca'],
+        ['#fae8ff', '#a21caf'],
+        ['#ffedd5', '#c2410c'],
+        ['#dcfce7', '#15803d'],
+        ['#cffafe', '#0e7490']
+    ];
+
+    let alunos = [];
+
+    const form = document.getElementById('formAluno');
+    const mensagemErro = document.getElementById('mensagemErro');
+    const btnLimparTudo = document.getElementById('btnLimparTudo');
+    const btnExportarCsv = document.getElementById('btnExportarCsv');
+    const filtroNome = document.getElementById('filtroNome');
+    const filtroSituacao = document.getElementById('filtroSituacao');
+    const previewMedia = document.getElementById('previewMedia');
+    const inputsNotas = ['n1', 'n2', 'n3'].map(id => document.getElementById(id));
+
+    async function carregarAlunos() {
+        const resposta = await fetch('/api/alunos');
+        alunos = await resposta.json();
+        atualizarInterface();
+    }
+
+    async function sincronizarAlunos() {
+        await fetch('/api/alunos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(alunos)
+        });
+    }
+
+    function formatarNome(texto) {
+        return texto
+            .trim()
+            .replace(/\\s+/g, ' ')
+            .toLowerCase()
+            .split(' ')
+            .map((palavra, indice) => {
+                if (indice > 0 && preposicoes.has(palavra)) {
+                    return palavra;
+                }
+                return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+            })
+            .join(' ');
+    }
+
+    function iniciais(nome) {
+        const partes = nome.trim().split(/\\s+/);
+        if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+        return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+    }
+
+    function corPorNome(nome) {
+        let soma = 0;
+        for (let i = 0; i < nome.length; i++) soma += nome.charCodeAt(i);
+        return coresAvatar[soma % coresAvatar.length];
+    }
+
+    function calcularSituacao(media) {
+        if (media >= 7.0) return { texto: "Aprovado(a)", classe: "aprovado" };
+        if (media >= 5.0) return { texto: "Em Recuperação", classe: "recuperacao" };
+        return { texto: "Reprovado(a)", classe: "reprovado" };
+    }
+
+    function atualizarPrevia() {
+        const valores = inputsNotas.map(inp => parseFloat(inp.value));
+        if (valores.some(v => Number.isNaN(v) || v < 0 || v > 10)) {
+            previewMedia.innerHTML = 'Prévia da média: <strong>—</strong>';
+            return;
+        }
+        const media = Number(((valores[0] + valores[1] + valores[2]) / 3).toFixed(2));
+        const sit = calcularSituacao(media);
+        previewMedia.innerHTML = `Prévia: <strong>${media.toFixed(2)}</strong> <span class="badge ${sit.classe}" style="padding:2px 8px;font-size:0.74rem;">${sit.texto}</span>`;
+    }
+
+    inputsNotas.forEach(inp => inp.addEventListener('input', atualizarPrevia));
+
+    async function removerAluno(index) {
+        alunos.splice(index, 1);
+        await sincronizarAlunos();
+        atualizarInterface();
+    }
+
+    form.addEventListener('submit', async function(evento) {
+        evento.preventDefault();
+        mensagemErro.textContent = "";
+
+        const nomeBruto = document.getElementById('nome').value;
+        const [n1, n2, n3] = inputsNotas.map(inp => parseFloat(inp.value));
+        const nomeLimpo = nomeBruto.trim().replace(/\\s+/g, ' ');
+
+        if (!nomeLimpo || !/^[A-Za-zÀ-ÿ\\s]+$/.test(nomeLimpo)) {
+            mensagemErro.textContent = "Erro: Digite um nome válido contendo apenas letras.";
+            return;
+        }
+
+        const nomeFormatado = formatarNome(nomeLimpo);
+
+        if (alunos.some(a => a.nome.toLowerCase() === nomeFormatado.toLowerCase())) {
+            mensagemErro.textContent = `Erro: O aluno(a) '${nomeFormatado}' já está cadastrado(a).`;
+            return;
+        }
+
+        if ([n1, n2, n3].some(n => Number.isNaN(n) || n < 0 || n > 10)) {
+            mensagemErro.textContent = "Erro: Todas as notas devem estar entre 0 e 10.";
+            return;
+        }
+
+        const media = Number(((n1 + n2 + n3) / 3).toFixed(2));
+        const situacao = calcularSituacao(media);
+
+        alunos.push({
+            nome: nomeFormatado,
+            notas: [n1, n2, n3],
+            media: media,
+            situacao: situacao
+        });
+
+        await sincronizarAlunos();
+        form.reset();
+        atualizarPrevia();
+        document.getElementById('nome').focus();
+        atualizarInterface();
+    });
+
+    btnLimparTudo.addEventListener('click', async function() {
+        if (alunos.length === 0) return;
+        if (confirm('Tem certeza que deseja remover todos os alunos?')) {
+            alunos = [];
+            await sincronizarAlunos();
+            atualizarInterface();
+        }
+    });
+
+    btnExportarCsv.addEventListener('click', function() {
+        if (alunos.length === 0) return;
+        const linhas = [
+            ['Aluno', 'Nota 1', 'Nota 2', 'Nota 3', 'Media', 'Situacao'].join(';')
+        ];
+        for (const a of alunos) {
+            linhas.push([
+                `"${a.nome}"`,
+                a.notas[0].toFixed(1).replace('.', ','),
+                a.notas[1].toFixed(1).replace('.', ','),
+                a.notas[2].toFixed(1).replace('.', ','),
+                a.media.toFixed(2).replace('.', ','),
+                `"${a.situacao.texto}"`
+            ].join(';'));
+        }
+        const blob = new Blob(["\\uFEFF" + linhas.join('\\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'boletim_turma.csv';
+        link.click();
+    });
+
+    filtroNome.addEventListener('input', atualizarInterface);
+    filtroSituacao.addEventListener('change', atualizarInterface);
+
+    function corBarra(classe) {
+        if (classe === 'aprovado') return '#16a34a';
+        if (classe === 'recuperacao') return '#eab308';
+        return '#dc2626';
+    }
+
+    function atualizarInterface() {
+        const tabela = document.getElementById('tabelaAlunos');
+        const total = alunos.length;
+
+        document.getElementById('statTotal').textContent = total;
+
+        if (total === 0) {
+            tabela.innerHTML = `
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <span class="empty-icon">📋</span>
+                            Nenhum aluno cadastrado até o momento.
+                        </div>
+                    </td>
+                </tr>`;
+            document.getElementById('statAprovados').textContent = '0';
+            document.getElementById('statRecuperacao').textContent = '0';
+            document.getElementById('statReprovados').textContent = '0';
+            document.getElementById('statMedia').textContent = '0.00';
+            document.getElementById('pctAprovados').textContent = '0% da turma';
+            document.getElementById('pctRecuperacao').textContent = '0% da turma';
+            document.getElementById('pctReprovados').textContent = '0% da turma';
+            return;
+        }
+
+        let aprovados = 0;
+        let recuperacao = 0;
+        let reprovados = 0;
+        let somaMedias = 0;
+
+        for (const aluno of alunos) {
+            somaMedias += aluno.media;
+            if (aluno.situacao.classe === 'aprovado') aprovados++;
+            else if (aluno.situacao.classe === 'recuperacao') recuperacao++;
+            else reprovados++;
+        }
+
+        const termo = filtroNome.value.trim().toLowerCase();
+        const situacaoSelecionada = filtroSituacao.value;
+
+        const filtrados = alunos
+            .map((aluno, index) => ({ aluno, index }))
+            .filter(({ aluno }) => {
+                const bateNome = aluno.nome.toLowerCase().includes(termo);
+                const bateSituacao = situacaoSelecionada === 'todos' || aluno.situacao.classe === situacaoSelecionada;
+                return bateNome && bateSituacao;
+            });
+
+        if (filtrados.length === 0) {
+            tabela.innerHTML = `
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <span class="empty-icon">🔎</span>
+                            Nenhum aluno encontrado com os filtros atuais.
+                        </div>
+                    </td>
+                </tr>`;
+        } else {
+            tabela.innerHTML = filtrados.map(({ aluno, index }) => {
+                const [bgAvatar, txtAvatar] = corPorNome(aluno.nome);
+                const notasHtml = aluno.notas
+                    .map(n => `<span class="nota-chip">${n.toFixed(1)}</span>`)
+                    .join('');
+                const larguraBarra = Math.min(100, Math.max(0, aluno.media * 10));
+
+                return `
+                    <tr>
+                        <td style="color:#64748b;font-weight:600;">${index + 1}</td>
+                        <td>
+                            <div class="aluno-info">
+                                <span class="avatar" style="background:${bgAvatar};color:${txtAvatar};">
+                                    ${iniciais(aluno.nome)}
+                                </span>
+                                <strong>${aluno.nome}</strong>
+                            </div>
+                        </td>
+                        <td><div class="notas-grupo">${notasHtml}</div></td>
+                        <td>
+                            <div class="media-cell">
+                                <strong style="min-width:38px;">${aluno.media.toFixed(2)}</strong>
+                                <div class="progress-bg">
+                                    <div class="progress-fill" style="width:${larguraBarra}%;background:${corBarra(aluno.situacao.classe)};"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="badge ${aluno.situacao.classe}">${aluno.situacao.texto}</span></td>
+                        <td style="text-align: right;">
+                            <button type="button" class="btn-delete" onclick="removerAluno(${index})" title="Excluir aluno">
+                                Excluir
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('statAprovados').textContent = aprovados;
+        document.getElementById('statRecuperacao').textContent = recuperacao;
+        document.getElementById('statReprovados').textContent = reprovados;
+        document.getElementById('statMedia').textContent = (somaMedias / total).toFixed(2);
+
+        document.getElementById('pctAprovados').textContent = `${Math.round((aprovados / total) * 100)}% da turma`;
+        document.getElementById('pctRecuperacao').textContent = `${Math.round((recuperacao / total) * 100)}% da turma`;
+        document.getElementById('pctReprovados').textContent = `${Math.round((reprovados / total) * 100)}% da turma`;
+    }
+
+    carregarAlunos();
+</script>
+</body>
+</html>
+"""
+
+
+class SistemaEscolarHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/api/alunos":
+            dados = carregar_alunos()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(dados, ensure_ascii=False).encode("utf-8"))
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(HTML_PAGE.encode("utf-8"))
+
+    def do_POST(self):
+        if self.path == "/api/alunos":
+            tamanho = int(self.headers.get("Content-Length", 0))
+            corpo = self.rfile.read(tamanho).decode("utf-8")
+            try:
+                alunos = json.loads(corpo)
+                if not isinstance(alunos, list):
+                    raise ValueError("Lista inválida")
+                alunos_validados = []
+                for item in alunos:
+                    nome = formatar_nome(str(item.get("nome", "")))
+                    notas = [float(x) for x in item.get("notas", [])]
+                    if not nome or len(notas) != 3 or any(n < 0 or n > 10 for n in notas):
+                        continue
+                    media = round(sum(notas) / 3, 2)
+                    alunos_validados.append({
+                        "nome": nome,
+                        "notas": notas,
+                        "media": media,
+                        "situacao": calcular_situacao(media),
+                    })
+                salvar_alunos(alunos_validados)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": True, "alunos": alunos_validados}, ensure_ascii=False).encode("utf-8"))
+            except (json.JSONDecodeError, ValueError, TypeError):
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b'{"erro": "Dados invalidos"}')
+            return
+
+        self.send_response(404)
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
+
+
+if __name__ == "__main__":
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("127.0.0.1", PORT), SistemaEscolarHandler) as servidor:
+        url = f"http://127.0.0.1:{PORT}"
+        print(f"Sistema rodando em {url} (pressione Ctrl+C para sair)")
+        threading.Timer(0.5, lambda: webbrowser.open(url)).start()
+        servidor.serve_forever()
