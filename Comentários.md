@@ -1,73 +1,98 @@
-
-# Devolutiva formativa — Atividade 01 da SA
+# Devolutiva formativa — Atividade 02 da SA
 
 **Estudante:** Erick  
 **Turma:** Rio Negrinho — Tarde  
-**Unidade Curricular:** Programação de Aplicativos  
-**Projeto escolhido:** Escola — Sistema de Controle de Notas  
-**Código analisado:** `codigo/app.py`  
-**Referência:** Situação de Aprendizagem nº 1 — *Da Ideia ao Código*
+**UC:** Programação de Aplicativos  
+**Projeto:** Sistema escolar — controle de notas  
+**Referência de revisão:** 26/11/2026 — commit `459a7521`
 
-## O que você já conseguiu desenvolver
+**Capacidades avaliadas:**
+- CT6 — Aplicar métodos e técnicas de programação.
+- CT7 — Empregar comentários para documentação do código-fonte.
 
-Erick, você construiu uma boa base para um sistema escolar. O código está dividido em funções com responsabilidades definidas e mostra atenção à validação de dados e à clareza das explicações.
+## O que você já desenvolveu
 
-Pontos positivos identificados:
+- Criou uma interface web com formulário de cadastro de alunos, campos de notas e visualização dos resultados.
+- Implementou cálculo de médias, classificação da situação escolar e validação de notas de 0 a 10.
+- Desenvolveu filtros por nome e situação, exclusão de registros e exportação CSV.
+- Utilizou Python para disponibilizar a aplicação via servidor HTTP e armazenar os registros em um arquivo JSON.
+- Separou algumas responsabilidades em funções e implementou tratamento de erros no recebimento e leitura de dados.
 
-- Organizou o programa em funções como `limpar_tela()`, `validar_nota()`, `exibir_cabecalho()`, `cadastrar_aluno()` e `listar_relatorio()`.
-- Utilizou **parâmetros e retorno de valores**, permitindo reaproveitar a função `validar_nota()` para as três notas de cada estudante.
-- Aplicou **`try/except` e estruturas de repetição** para solicitar novamente uma nota quando a entrada não for numérica ou estiver fora do intervalo de 0 a 10.
-- Utilizou **listas e dicionários** para representar alunos, notas, médias e situações escolares.
-- Implementou o cálculo da média e a classificação em aprovado, recuperação ou reprovado, conforme as faixas definidas no próprio programa.
-- Incluiu **docstrings e comentários** que facilitam a compreensão das funções.
+## Correções e oportunidades de melhoria
 
-## O que precisa ser corrigido
+### 1. Organizar a separação entre interface e código Python
 
-### 1. Concluir a função de relatório
+O arquivo `codigo/app.py` reúne o servidor e uma grande string com HTML, CSS e JavaScript.
 
-O arquivo disponibilizado termina durante a construção do relatório, logo após a linha `print(f"• Total")`. A função `listar_relatorio()` ainda não apresenta um resumo final completo com a quantidade de estudantes por situação e a média da turma, embora já calcule esses valores.
+Já o arquivo `interface/index.html` começa com `HTML_PAGE = """`, que é uma atribuição Python, e não uma instrução HTML.
 
-**Como melhorar:** finalizar o relatório usando `len(alunos)`, `media_turma`, `aprovados`, `recuperacao` e `reprovados`. Depois, testar o relatório com estudantes de diferentes situações e também com a lista vazia.
+Os arquivos `interface/style.css` e `interface/script.js` estão vazios.
 
-### 2. Criar um fluxo principal para executar o programa
+**Como melhorar:**
 
-Atualmente, o arquivo define as funções, mas não chama `cadastrar_aluno()` nem `listar_relatorio()`. Ao executar `python codigo/app.py`, o usuário não recebe um menu ou uma sequência de ações para utilizar o sistema.
+- Deixar o HTML em `index.html`.
+- Deixar o CSS em `style.css`.
+- Deixar o JavaScript em `script.js`.
+- Ajustar o servidor para entregar esses arquivos ou utilizar Flask.
+- Evitar manter duas cópias da mesma página.
 
-**Como melhorar:** criar uma função `menu()` com opções para cadastrar estudantes, listar o relatório e sair. Manter a lista de alunos durante a execução e iniciar o programa por um bloco `if __name__ == "__main__":`.
+### 2. Melhorar as validações e a resposta aos erros
 
-## Oportunidades de melhoria
+O servidor verifica os nomes e as notas, mas pode descartar registros inválidos silenciosamente.
 
-### 3. Tornar os comentários mais objetivos
+A interface deve informar ao usuário quando o cadastro ou a comunicação com o servidor falhar.
 
-A documentação é um ponto forte, mas algumas linhas explicam operações muito simples, como incrementar um contador ou imprimir uma linha de texto. Isso aumenta o tamanho do arquivo sem acrescentar informação relevante.
+**Como melhorar:**
 
-**Como melhorar:** preservar as docstrings e priorizar comentários que expliquem **por que uma regra existe**, especialmente os limites das notas e as faixas de classificação.
+- Retornar mensagens claras para entradas inválidas.
+- Conferir a resposta do servidor antes de atualizar a interface.
+- Testar campos vazios.
+- Testar textos no lugar de números.
+- Testar notas fora do intervalo permitido.
 
-### 4. Evitar dados duplicados quando possível
+### 3. Documentar a execução do projeto
 
-O dicionário de cada aluno guarda as três notas e também a média e a situação. Essa organização é válida para o exercício, mas exige cuidado: se uma nota for alterada futuramente, a média e a situação precisarão ser recalculadas.
+O README ainda contém principalmente as orientações gerais da Situação de Aprendizagem.
 
-**Como melhorar:** centralizar o cálculo da média e da situação em uma função reutilizável antes de implementar a edição de notas.
+É necessário acrescentar:
 
-### 5. Comprovar o comportamento do sistema
+- Objetivo do sistema.
+- Requisitos para execução.
+- Comando de execução: `python codigo/app.py`.
+- No Mac: `python3 codigo/app.py`.
+- Endereço de acesso: `http://127.0.0.1:8000`.
+- Funcionalidades disponíveis.
+- Organização dos arquivos.
+- Funcionamento do armazenamento em JSON.
 
-Não identifiquei testes automatizados específicos da aplicação no código analisado. Para a entrega, é importante demonstrar que o sistema se comporta corretamente diante de diferentes entradas.
+Acrescente comentários ou docstrings nas funções Python quando forem úteis para explicar as regras de negócio.
 
-**Como melhorar:** verificar estes cenários:
+## Testes recomendados
 
-1. Cadastro de aluno com três notas válidas.
-2. Digitação de uma nota negativa, acima de 10 ou com letras.
-3. Cadastro com nome vazio.
-4. Relatório com alunos aprovados, em recuperação e reprovados.
-5. Relatório quando não houver nenhum aluno cadastrado.
+| Teste | Resultado esperado |
+|---|---|
+| Cadastrar um aluno com notas 8, 7 e 9 | Média 8,0 e situação de aprovação |
+| Informar nota superior a 10 | Cadastro rejeitado com mensagem compreensível |
+| Filtrar a lista pelo nome | Apenas registros correspondentes são exibidos |
+| Excluir um registro e reiniciar | A exclusão permanece registrada |
+| Exportar os registros | Arquivo CSV contém os dados esperados |
 
-## Prioridades para a próxima versão
+## Prioridades para a próxima entrega — B4
 
-1. **Concluir a função `listar_relatorio()` e exibir as estatísticas calculadas.**
-2. **Implementar o menu e a chamada inicial do programa para que o sistema seja utilizável.**
-3. **Executar os cenários de teste e registrar os resultados.**
-4. **Revisar comentários redundantes, mantendo a documentação das regras importantes.**
+- [ ] Separar HTML, CSS e JavaScript do código Python.
+- [ ] Integrar o sistema ao banco de dados.
+- [ ] Implementar as operações CRUD.
+- [ ] Garantir a persistência dos registros.
+- [ ] Atualizar o README.
+- [ ] Executar e registrar os testes.
+- [ ] Publicar as alterações no GitHub.
 
 ## Mensagem final
 
-Erick, seu trabalho demonstra compreensão de funções, parâmetros, estruturas de controle, listas, dicionários e tratamento de entradas inválidas. A organização e a documentação são bons pontos de partida. Agora, concentre-se em **concluir o fluxo do sistema e demonstrar seu funcionamento de ponta a ponta**. Um programa menor, completo e testado vale mais do que funcionalidades que ainda não podem ser utilizadas. Continue registrando a evolução do projeto no GitHub.
+Erick, sua aplicação já apresenta funcionalidades importantes para o controle de notas.
+
+A próxima etapa é melhorar a organização entre as camadas da aplicação, a comunicação de erros e a documentação, de modo que outro desenvolvedor consiga executar e compreender o projeto sem sua ajuda.
+
+Continue evoluindo o sistema e procure compreender como cada funcionalidade foi implementada.
+
+---
